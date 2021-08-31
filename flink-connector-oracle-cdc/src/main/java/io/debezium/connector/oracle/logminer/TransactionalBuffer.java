@@ -31,6 +31,9 @@ import java.util.Set;
 /**
  * Buffer that stores transactions and related callbacks that will be executed when a transaction
  * commits or discarded when a transaction has been rolled back.
+ *
+ * <p>Copied from Debezium project. Make {@link #calculateSmallestScn()} default to be accessible
+ * from {@link LogMinerStreamingChangeEventSource}.
  */
 @NotThreadSafe
 public final class TransactionalBuffer implements AutoCloseable {
@@ -285,7 +288,7 @@ public final class TransactionalBuffer implements AutoCloseable {
         return transactions.get(txId) != null;
     }
 
-    private Scn calculateSmallestScn() {
+    Scn calculateSmallestScn() {
         Scn scn =
                 transactions.isEmpty()
                         ? null

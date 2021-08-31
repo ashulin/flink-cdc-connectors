@@ -59,6 +59,8 @@ import static io.debezium.connector.oracle.logminer.LogMinerHelper.startLogMinin
 /**
  * A {@link StreamingChangeEventSource} based on Oracle's LogMiner utility. The event handler loop
  * is executed in a separate executor.
+ *
+ * <p>Copied from Debezium project. Improved SCN update of offsetContext
  */
 public class LogMinerStreamingChangeEventSource implements StreamingChangeEventSource {
 
@@ -254,6 +256,14 @@ public class LogMinerStreamingChangeEventSource implements StreamingChangeEventS
                                             "Transactional buffer empty, updating offset's SCN {}",
                                             startScn);
                                     offsetContext.setScn(startScn);
+                                } else {
+                                    Scn smallestScn = transactionalBuffer.calculateSmallestScn();
+                                    if (smallestScn != null) {
+                                        LOGGER.debug(
+                                                "Transactional buffer isn't empty, updating offset's SCN {}",
+                                                smallestScn);
+                                        offsetContext.setScn(smallestScn.subtract(Scn.valueOf(1)));
+                                    }
                                 }
                             }
 
