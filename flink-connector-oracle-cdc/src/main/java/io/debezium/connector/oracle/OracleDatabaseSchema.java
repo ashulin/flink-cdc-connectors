@@ -31,6 +31,8 @@ public class OracleDatabaseSchema extends HistorizedRelationalDatabaseSchema {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(OracleDatabaseSchema.class);
 
+    private boolean storageInitializationExecuted = false;
+
     public OracleDatabaseSchema(
             OracleConnectorConfig connectorConfig,
             SchemaNameAdjuster schemaNameAdjuster,
@@ -82,5 +84,20 @@ public class OracleDatabaseSchema extends HistorizedRelationalDatabaseSchema {
         }
 
         record(schemaChange, tableChanges);
+    }
+
+    @Override
+    public void initializeStorage() {
+        super.initializeStorage();
+        storageInitializationExecuted = true;
+    }
+
+    public boolean isStorageInitializationExecuted() {
+        return storageInitializationExecuted;
+    }
+
+    /** Return true if the database history entity exists. */
+    public boolean historyExists() {
+        return databaseHistory.exists();
     }
 }
