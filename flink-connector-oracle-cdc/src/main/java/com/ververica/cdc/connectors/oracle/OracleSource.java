@@ -23,7 +23,6 @@ import org.apache.flink.configuration.Configuration;
 import org.apache.flink.shaded.guava18.com.google.common.collect.Maps;
 
 import com.ververica.cdc.connectors.oracle.debezium.DebeziumUtils;
-import com.ververica.cdc.connectors.oracle.table.StartupMode;
 import com.ververica.cdc.connectors.oracle.table.StartupOptions;
 import com.ververica.cdc.debezium.DebeziumDeserializationSchema;
 import com.ververica.cdc.debezium.DebeziumSourceFunction;
@@ -157,6 +156,8 @@ public class OracleSource {
                 props.setProperty("table.include.list", String.join(",", tableList));
             }
             DebeziumOffset specificOffset = null;
+            Configuration configuration = null;
+            OracleConnection connection = null;
             switch (startupOptions.startupMode) {
                 case INITIAL:
                     props.setProperty("snapshot.mode", "initial");
@@ -164,27 +165,30 @@ public class OracleSource {
                 case LATEST_OFFSET:
                     props.setProperty("snapshot.mode", "schema_only");
                     break;
+                    // waite debezium
                 case SPECIFIC_OFFSET:
-                    props.setProperty("snapshot.mode", "schema_only");
-                    specificOffset = getDebeziumOffset(startupOptions.offset);
+                    props.setProperty("snapshot.mode", "schema_only_recovery");
+                    specificOffset = getDebeziumOffset(startupOptions.offset.toString());
                     break;
                 case EARLIEST_OFFSET:
+                    props.setProperty("snapshot.mode", "schema_only_recovery");
+                    configuration = Configuration.fromMap(Maps.fromProperties(props));
+                    connection = DebeziumUtils.openOracleConnection(configuration);
+                    specificOffset =
+                            getDebeziumOffset(
+                                    DebeziumUtils.getEarliestScn(connection, configuration)
+                                            .toString());
+                    break;
                 case TIMESTAMP:
-                    props.setProperty("snapshot.mode", "schema_only");
-                    Configuration configuration = Configuration.fromMap(Maps.fromProperties(props));
-                    OracleConnection connection = DebeziumUtils.openOracleConnection(configuration);
-                    if (startupOptions.startupMode == StartupMode.EARLIEST_OFFSET) {
-                        specificOffset =
-                                getDebeziumOffset(
-                                        DebeziumUtils.getEarliestScn(connection, configuration)
-                                                .longValue());
-                    } else {
-                        specificOffset =
-                                getDebeziumOffset(
-                                        DebeziumUtils.getScnByTimestamp(
-                                                        connection, startupOptions.timestamp)
-                                                .longValue());
-                    }
+                    props.setProperty("snapshot.mode", "schema_only_recovery");
+                    configuration = Configuration.fromMap(Maps.fromProperties(props));
+                    connection = DebeziumUtils.openOracleConnection(configuration);
+                    specificOffset =
+                            getDebeziumOffset(
+                                    DebeziumUtils.getScnByTimestamp(
+                                                    connection, startupOptions.timestamp)
+                                            .toString());
+
                     break;
                 default:
                     throw new UnsupportedOperationException();
@@ -199,16 +203,16 @@ public class OracleSource {
         }
     }
 
-    private static DebeziumOffset getDebeziumOffset(Long offset) {
+    private static DebeziumOffset getDebeziumOffset(String offset) {
         DebeziumOffset specificOffset = new DebeziumOffset();
-        Map<String, String> sourcePartition = new HashMap<>();
+        Map<String, String> sourcePartition = new HashMap<>(2);
         // OracleOffsetContext.SERVER_PARTITION_KEY
         sourcePartition.put("server", DATABASE_SERVER_NAME);
         specificOffset.setSourcePartition(sourcePartition);
 
-        Map<String, Object> sourceOffset = new HashMap<>();
-        sourceOffset.put(SourceInfo.SCN_KEY, offset.toString());
-        sourceOffset.put(SourceInfo.COMMIT_SCN_KEY, offset.toString());
+        Map<String, Object> sourceOffset = new HashMap<>(4);
+        sourceOffset.put(SourceInfo.SCN_KEY, offset);
+        sourceOffset.put(SourceInfo.COMMIT_SCN_KEY, offset);
         sourceOffset.put(SourceInfo.SNAPSHOT_KEY, Boolean.TRUE.toString());
         specificOffset.setSourceOffset(sourceOffset);
         return specificOffset;

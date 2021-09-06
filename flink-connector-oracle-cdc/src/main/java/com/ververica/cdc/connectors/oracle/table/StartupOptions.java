@@ -18,6 +18,7 @@
 
 package com.ververica.cdc.connectors.oracle.table;
 
+import java.math.BigInteger;
 import java.util.Objects;
 
 import static org.apache.flink.util.Preconditions.checkNotNull;
@@ -25,7 +26,7 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
 /** oracle startup options. */
 public class StartupOptions {
     public final StartupMode startupMode;
-    public final Long offset;
+    public final BigInteger offset;
     public final Long timestamp;
 
     /**
@@ -57,7 +58,7 @@ public class StartupOptions {
      * Never to perform snapshot on the monitored database tables upon first startup, and directly
      * read binlog from the specified offset.
      */
-    public static StartupOptions specificOffset(long offset) {
+    public static StartupOptions specificOffset(BigInteger offset) {
         return new StartupOptions(StartupMode.SPECIFIC_OFFSET, offset, null);
     }
 
@@ -74,7 +75,7 @@ public class StartupOptions {
         return new StartupOptions(StartupMode.TIMESTAMP, null, timestamp);
     }
 
-    private StartupOptions(StartupMode startupMode, Long offset, Long timestamp) {
+    private StartupOptions(StartupMode startupMode, BigInteger offset, Long timestamp) {
         this.startupMode = startupMode;
         this.offset = offset;
         this.timestamp = timestamp;
